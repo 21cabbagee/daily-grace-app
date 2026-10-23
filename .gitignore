@@ -45,3 +45,6 @@ yarn-error.*
 data/
 *.db
 *.sqlite
+
+# Local AI quality samples
+samples/

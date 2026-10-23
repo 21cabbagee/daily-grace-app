@@ -4,7 +4,7 @@ import { createDb, migrateDb } from "./db/client";
 import { env } from "./env";
 import { logger } from "./lib/logger";
 import { RateLimiter } from "./lib/rate-limit";
-import { createClaudeWriter, unavailableWriter } from "./services/ai";
+import { createWriterFromEnv } from "./services/ai";
 import { apiBibleProvider, publicDomainProvider, ScriptureService } from "./services/scripture";
 
 async function main() {
@@ -13,7 +13,7 @@ async function main() {
 
   const provider =
     env.BIBLE_API_KEY && env.BIBLE_API_BIBLE_ID ? apiBibleProvider(env.BIBLE_API_KEY, env.BIBLE_API_BIBLE_ID) : publicDomainProvider();
-  const writer = env.ANTHROPIC_API_KEY ? createClaudeWriter(env.ANTHROPIC_API_KEY, env.ANTHROPIC_MODEL) : unavailableWriter();
+  const writer = createWriterFromEnv(env);
 
   const app = createApp(
     {

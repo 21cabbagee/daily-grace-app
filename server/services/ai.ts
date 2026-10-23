@@ -54,7 +54,8 @@ Write a devotional of about 300 words in total, based only on the Bible passage 
 
 Rules:
 - Quote Scripture only from the passage provided; never invent or paraphrase other verses as quotations.
-- Stay within broadly shared evangelical belief; avoid divisive doctrinal positions. Respect the reader's denomination if given.
+- Speak to the reader as "you" in the reflection and insights. Never write as if you are the reader; the closing prayer alone is in the reader's own voice ("I", "me").
+- Stay within broadly shared evangelical belief. Do not take sides on debated topics such as the meaning or mode of baptism, communion, spiritual gifts, election, or the end times. Respect the reader's denomination if given.
 - Do not claim to be a pastor or clergy. Do not give medical, legal, financial, or mental-health advice. If the reader's situation suggests crisis, gently encourage them to reach out to a trusted pastor, counselor, or the 988 Suicide & Crisis Lifeline.
 - Plain prose only: no markdown, no bullet characters, no emojis.`;
 
@@ -114,6 +115,13 @@ export function createClaudeWriter(apiKey: string, model: string, opts: { fetch?
     return response.parsed_output as z.infer<T>;
   }
 
+  return buildWriter(model, parse);
+}
+
+type ParseFn = <T extends z.ZodType>(system: string, user: string, schema: T) => Promise<z.infer<T>>;
+
+/** Prompts and validation shared by every model provider. */
+function buildWriter(model: string, parse: ParseFn): DevotionalWriter {
   return {
     model,
     async writeDevotional(input) {
@@ -139,10 +147,85 @@ export function createClaudeWriter(apiKey: string, model: string, opts: { fetch?
   };
 }
 
-/** Used when ANTHROPIC_API_KEY is not configured, so the rest of the app still runs. */
+/**
+ * Any OpenAI-compatible chat endpoint: Ollama (local, free), Groq and Google Gemini
+ * (free tiers), OpenRouter ":free" models, and others. Uses JSON mode with the schema in
+ * the prompt, because json_schema support varies across these providers; the result is
+ * still validated with Zod before use.
+ */
+export function createOpenAICompatibleWriter(
+  baseUrl: string,
+  model: string,
+  apiKey?: string,
+  opts: { fetch?: typeof fetch; timeoutMs?: number } = {},
+): DevotionalWriter {
+  const fetchFn = opts.fetch ?? fetch;
+  const url = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
+
+  const parse: ParseFn = async (system, user, schema) => {
+    const jsonSchema = JSON.stringify(z.toJSONSchema(schema));
+    let res: Response;
+    try {
+      res = await fetchFn(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
+        body: JSON.stringify({
+          model,
+          temperature: 0.7,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: `${system}\n\nRespond with a single JSON object (no prose, no code fences) matching this JSON Schema:\n${jsonSchema}` },
+            { role: "user", content: user },
+          ],
+        }),
+        signal: AbortSignal.timeout(opts.timeoutMs ?? 120_000),
+      });
+    } catch {
+      throw new AiError("The devotional service is unreachable. Please try again shortly.", true);
+    }
+    if (res.status === 429 || res.status >= 500) throw new AiError("The devotional service is busy. Please try again shortly.", true);
+    if (!res.ok) throw new AiError(`AI request failed (${res.status})`, false);
+
+    const body = (await res.json()) as { choices?: { message?: { content?: string }; finish_reason?: string }[] };
+    const choice = body.choices?.[0];
+    if (choice?.finish_reason === "length") throw new AiError("AI output was cut off", true);
+    const text = (choice?.message?.content ?? "").replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      throw new AiError("AI returned malformed output", true);
+    }
+    const parsed = schema.safeParse(json);
+    if (!parsed.success) throw new AiError("AI output did not match the expected format", true);
+    return parsed.data;
+  };
+
+  return buildWriter(model, parse);
+}
+
+/** Used when no AI provider is configured, so the rest of the app still runs. */
 export function unavailableWriter(): DevotionalWriter {
   const fail = async (): Promise<never> => {
-    throw new AiError("AI devotionals are not configured on this server (missing ANTHROPIC_API_KEY).", false);
+    throw new AiError("AI devotionals are not configured on this server (set AI_BASE_URL or ANTHROPIC_API_KEY).", false);
   };
   return { model: "unconfigured", writeDevotional: fail, suggestPrayerTopics: fail };
+}
+
+export interface AiEnv {
+  ANTHROPIC_API_KEY?: string;
+  ANTHROPIC_MODEL: string;
+  AI_BASE_URL?: string;
+  AI_API_KEY?: string;
+  AI_MODEL?: string;
+}
+
+/** Picks the configured provider: an OpenAI-compatible endpoint if AI_BASE_URL is set, else Claude. */
+export function createWriterFromEnv(env: AiEnv): DevotionalWriter {
+  if (env.AI_BASE_URL) {
+    if (!env.AI_MODEL) throw new Error("AI_MODEL is required when AI_BASE_URL is set");
+    return createOpenAICompatibleWriter(env.AI_BASE_URL, env.AI_MODEL, env.AI_API_KEY);
+  }
+  if (env.ANTHROPIC_API_KEY) return createClaudeWriter(env.ANTHROPIC_API_KEY, env.ANTHROPIC_MODEL);
+  return unavailableWriter();
 }

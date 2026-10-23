@@ -12,7 +12,7 @@ This repository is a full rebuild from the Manus handoff document. The original 
 | API | Node + Hono + tRPC v11 (`server/`), Zod validation, structured JSON logs |
 | Database | Drizzle ORM on SQLite / libSQL (local file in dev, Turso in production). Migrations in `drizzle/` |
 | Auth | Email + password (bcrypt), 30-day JWT in the iOS Keychain / Android Keystore, revoke-all-sessions |
-| AI | Claude API (`claude-opus-5-5`) via `@anthropic-ai/sdk`, structured JSON output, server-side only |
+| AI | Any OpenAI-compatible endpoint (free: Ollama locally, Groq or Gemini free tiers) or the Claude API. Server-side only, output validated with Zod |
 | Scripture | World English Bible (public domain) via bible-api.com by default; API.Bible when a key is set. Cached server-side |
 | Billing | RevenueCat SDK in the app; entitlements decided only by the server (webhook + RevenueCat REST API) |
 | Reminders | Local daily notification at the user's chosen time (default 6:00 AM, device timezone) |
@@ -37,7 +37,23 @@ npm install
 cp .env.example .env
 ```
 
-Put an `ANTHROPIC_API_KEY` in `.env` if you want real devotionals (everything else works without it). Then start the API and the Expo dev server together:
+For free AI devotionals, install [Ollama](https://ollama.com), pull a model, and point `.env` at it (everything else in the app works without AI):
+
+```bash
+ollama pull llama3.1:8b
+```
+
+```bash
+printf 'AI_BASE_URL=http://localhost:11434/v1\nAI_MODEL=llama3.1:8b\n' >> .env
+```
+
+To read a few devotionals without opening the app (writes `samples/devotionals.md`, saves nothing to the database):
+
+```bash
+npm run sample:devotionals
+```
+
+Then start the API and the Expo dev server together:
 
 ```bash
 npm run dev
@@ -58,12 +74,13 @@ npm run admin:grant -- you@example.com
 | `npm run dev` | API server (watch mode) + Expo |
 | `npm run check` | TypeScript, whole repo |
 | `npm run lint` | Expo ESLint |
-| `npm test` | Vitest: 55 tests covering auth, ownership isolation, quotas, caching, streaks, moderation, billing webhooks, Scripture parsing, and the Claude request/parse path (network stubbed) |
+| `npm test` | Vitest: 59 tests covering auth, ownership isolation, quotas, caching, streaks, moderation, billing webhooks, Scripture parsing, and both AI providers' request/parse paths (network stubbed) |
 | `npm run build` | Bundles the API to `dist/server.mjs` |
 | `npm run start:server` | Runs the built API (applies migrations on boot) |
 | `npm run build:web` | Static web export |
 | `npm run db:generate` | New Drizzle migration after editing `server/db/schema.ts` |
 | `npm run job:pregenerate` | Pre-generates today's devotional for paid users due a reminder within the hour |
+| `npm run sample:devotionals` | Writes 5 real devotionals with the configured AI to `samples/devotionals.md` for review |
 
 ## Layout
 

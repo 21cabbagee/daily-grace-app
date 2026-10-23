@@ -7,7 +7,7 @@ Verification on 2026-10-23: `npm run check`, `npm run lint`, `npm test` (55 pass
 ## Architecture decisions
 
 - [x] Backend: self-hosted Node/Hono/tRPC + Drizzle on SQLite/libSQL. **Not Supabase** — chosen so the app runs locally with zero setup and ownership rules live in tested application code. Migrating to Supabase later would mean replacing auth and writing RLS policies for every user-owned table.
-- [x] AI: direct Claude API from the server (`claude-opus-5-5`), not a platform helper.
+- [x] AI: pluggable provider. Free OpenAI-compatible endpoints (Ollama locally; Groq / Gemini free tiers hosted) or the Claude API (`claude-opus-5-5`).
 - [x] Scripture: public-domain WEB by default, API.Bible optional.
 - [x] Styling: React Native `StyleSheet` with theme tokens (`src/lib/theme.tsx`) instead of NativeWind, to avoid build-config fragility.
 - [x] Navigation: 5 tabs (Home, Today, Bible, Prayers, Community); Settings opens from the Home header.
@@ -19,7 +19,10 @@ Verification on 2026-10-23: `npm run check`, `npm run lint`, `npm test` (55 pass
 - [x] Daily verse rotation, live Scripture fetch + server cache + stale fallback
 - [x] Devotional generation: quota check, idempotent per user/day, structured output, validation, retries for transient errors, persistence
 - [x] Free quota (3 per rolling week) enforced on the server
-- [~] Claude output quality — request/parse path is tested with a stubbed network; **no live Claude call has been made**. 🔑 Add `ANTHROPIC_API_KEY` and read ~10 real devotionals before launch.
+- [x] Devotional quality checked with a free local model (Ollama `llama3.1:8b`, 2026-10-23): 10 generated, readable and on-structure. The prompt was tightened after it wrote in the reader's voice and took a side on baptism. About 1 in 4 attempts fails validation and is retried automatically; 17-55 s each on an M5 laptop.
+- [ ] 🔑 Pick the hosted free provider (Groq or Gemini), get a free key, and run `npm run sample:devotionals` against it
+- [ ] Consider KJV (also public domain): the WEB says "Yahweh" where most US evangelicals expect "the LORD"
+- [~] Claude output quality: request/parse path is tested with a stubbed network; no live Claude call has been made (optional, paid)
 - [x] Bible reader: all books/chapters, reference jump, prev/next, highlights, bookmarks, notes, free-tier caps
 - [ ] Full-text Bible search (needs API.Bible search endpoint or a local index)
 - [ ] Offline reading beyond the server cache

@@ -9,6 +9,10 @@ const EnvSchema = z.object({
   JWT_SECRET: z.string().min(32).optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default("claude-opus-5-5"),
+  // Free alternative: any OpenAI-compatible endpoint (Ollama, Groq, Gemini, OpenRouter).
+  AI_BASE_URL: z.string().url().optional(),
+  AI_API_KEY: z.string().optional(),
+  AI_MODEL: z.string().optional(),
   BIBLE_API_KEY: z.string().optional(),
   BIBLE_API_BIBLE_ID: z.string().optional(),
   REVENUECAT_WEBHOOK_AUTH: z.string().optional(),

@@ -10,7 +10,7 @@ Any Node 20+ host works (Render, Fly.io, Railway, a VPS). The server is a single
 2. Set environment variables from `.env.example`:
    - `JWT_SECRET` — `openssl rand -base64 48`. **Required**; the server refuses to start in production without it.
    - `DATABASE_URL` / `DATABASE_AUTH_TOKEN`
-   - `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`, default `claude-opus-5-5`)
+   - AI: either `AI_BASE_URL` + `AI_MODEL` (+ `AI_API_KEY`) for a free OpenAI-compatible provider, or `ANTHROPIC_API_KEY` for Claude (see "AI cost and behaviour")
    - `REVENUECAT_WEBHOOK_AUTH`, `REVENUECAT_SECRET_KEY`
    - `CORS_ORIGINS` — only needed if you ship the web build
    - `NODE_ENV=production`
@@ -26,7 +26,17 @@ Any Node 20+ host works (Render, Fly.io, Railway, a VPS). The server is a single
 
 ### AI cost and behaviour
 
-Each devotional is one Claude request (structured JSON, effort `medium`), plus at most three prayer-suggestion requests per Plus user per day. Requests opt into server-side refusal fallbacks (`fallbacks: "default"`) so a safety-classifier decline is retried on Anthropic's recommended fallback model. Set a monthly spend limit in the Anthropic console.
+**Free route.** Ollama is only for development: your laptop can't serve real users. For a hosted app at no cost, use a free tier:
+
+| Provider | `AI_BASE_URL` | Suggested `AI_MODEL` | Notes |
+|---|---|---|---|
+| Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | Free key at console.groq.com; rate-limited |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.5-flash` | Free key at aistudio.google.com; rate-limited |
+| OpenRouter | `https://openrouter.ai/api/v1` | any model ending in `:free` | Free models change often |
+
+Check each provider's current free-tier limits and data terms before launch: some free tiers allow the provider to use prompts to improve their models. Daily Grace never sends prayer-journal text to any model, but the optional "what's on your heart" note *is* sent with the devotional request. Run `npm run sample:devotionals` against the provider you choose and read the output before switching it on. Free tiers have daily request caps; the server caches one devotional per user per day and retries transient failures, but at scale you will outgrow them.
+
+**Claude (paid).** Each devotional is one Claude request (structured JSON, effort `medium`), plus at most three prayer-suggestion requests per Plus user per day. Requests opt into server-side refusal fallbacks (`fallbacks: "default"`) so a safety-classifier decline is retried on Anthropic's recommended fallback model. Set a monthly spend limit in the Anthropic console.
 
 ## 2. Scripture licensing
 

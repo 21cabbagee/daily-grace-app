@@ -10,12 +10,13 @@ import { localDate, localHour } from "../server/lib/dates";
 import { logger } from "../server/lib/logger";
 import { RateLimiter } from "../server/lib/rate-limit";
 import { appRouter } from "../server/routers";
-import { createClaudeWriter } from "../server/services/ai";
+import { createWriterFromEnv } from "../server/services/ai";
 import { effectiveTier } from "../server/services/billing";
 import { apiBibleProvider, publicDomainProvider, ScriptureService } from "../server/services/scripture";
 
 async function main() {
-  if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is required");
+  const writer = createWriterFromEnv(env);
+  if (writer.model === "unconfigured") throw new Error("Set AI_BASE_URL + AI_MODEL or ANTHROPIC_API_KEY");
   const db = createDb(env.DATABASE_URL, env.DATABASE_AUTH_TOKEN);
   await migrateDb(db);
   const provider =
@@ -24,7 +25,7 @@ async function main() {
     db,
     jwtSecret: env.JWT_SECRET,
     scripture: new ScriptureService(db, provider),
-    writer: createClaudeWriter(env.ANTHROPIC_API_KEY, env.ANTHROPIC_MODEL),
+    writer,
     limiter: new RateLimiter(),
     now: () => new Date(),
   };
