@@ -1,5 +1,7 @@
 # Daily Grace
 
+> **AI agents continuing this project: start with [HANDOFF.md](HANDOFF.md).**
+
 A daily devotional app for evangelical Christians: an AI-written devotional on each day's verse, a Bible reader, a private prayer journal, and a moderated community — with Free, Grace Plus ($4.99/mo) and Grace Pro ($9.99/mo) plans.
 
 This repository is a full rebuild from the Manus handoff document. The original Manus project (`/home/ubuntu/daily-grace-app`, checkpoint `f1c53a29`) was not available, so nothing here is carried over from it except the product spec, brand palette, and screen inventory.
